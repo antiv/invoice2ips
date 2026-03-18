@@ -1,0 +1,5 @@
+{
+  "name": "IPS Invoice Scanner",
+  "description": "A mobile-optimized PWA to scan invoices and generate NBS IPS QR codes for instant payments in Serbia.",
+  "requestFramePermissions": ["camera"]
+}
