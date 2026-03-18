@@ -266,9 +266,13 @@ export default function App() {
   };
 
   const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    if (!navigator.clipboard) return;
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(err => {
+      console.error("Clipboard error:", err);
+    });
   };
 
   const shareQrCode = async () => {
@@ -300,13 +304,14 @@ export default function App() {
   const openBankApp = (scheme: string) => {
     if (!invoiceData) return;
     const ipsString = generateIpsString(invoiceData);
-    const url = `${scheme}${encodeURIComponent(ipsString)}`;
     
-    // Attempt to open the app
+    // 1. Copy IMMEDIATELY to preserve user activation
+    copyToClipboard(ipsString);
+    
+    // 2. Then attempt to open the app
+    const url = `${scheme}${encodeURIComponent(ipsString)}`;
     window.location.href = url;
     
-    // Fallback: If the app didn't open, copy the string and show a hint
-    copyToClipboard(ipsString);
     setShowCopyHint(true);
     setTimeout(() => setShowCopyHint(false), 5000);
     setShowBankModal(false);
