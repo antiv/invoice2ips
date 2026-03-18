@@ -6,8 +6,9 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { GoogleGenAI, Type } from "@google/genai";
 import { QRCodeSVG } from 'qrcode.react';
-import { Camera, Upload, RefreshCw, CheckCircle2, AlertCircle, QrCode, ArrowLeft, Loader2 } from 'lucide-react';
+import { Camera, Upload, RefreshCw, CheckCircle2, AlertCircle, QrCode, ArrowLeft, Loader2, Copy, Share2, X, ExternalLink } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { toPng } from 'html-to-image';
 
 // --- Types ---
 
@@ -37,7 +38,18 @@ const translations = {
     tryAgain: "Pokušaj ponovo",
     cameraError: "Nije moguće pristupiti kameri. Proverite dozvole.",
     processingError: "Nije uspelo izvlačenje podataka. Pokušajte ponovo sa jasnijom slikom.",
-    na: "N/A"
+    na: "N/A",
+    copied: "Kopirano u privremenu memoriju",
+    copyHint: "Ako se aplikacija banke nije otvorila, kopirali smo IPS string. Možete ga nalepiti u aplikaciji banke.",
+    shareTitle: "Podeli QR kod",
+    shareDesc: "Podelite IPS QR kod kao sliku.",
+    selectBank: "Izaberite banku",
+    genericIps: "Generički IPS (Preporučeno)",
+    bankIntesa: "Banca Intesa",
+    bankRaiffeisen: "Raiffeisen Banka",
+    bankYettel: "Yettel Bank",
+    bankOTP: "OTP Banka",
+    bankNLB: "NLB Komercijalna"
   },
   en: {
     title: "IPS Scanner",
@@ -62,7 +74,18 @@ const translations = {
     tryAgain: "Try Again",
     cameraError: "Could not access camera. Please check permissions.",
     processingError: "Failed to extract data from the invoice. Please try again with a clearer picture.",
-    na: "N/A"
+    na: "N/A",
+    copied: "Copied to clipboard",
+    copyHint: "If the bank app didn't open, we've copied the IPS string. You can paste it in your bank app.",
+    shareTitle: "Share QR Code",
+    shareDesc: "Share the IPS QR code as an image.",
+    selectBank: "Select Your Bank",
+    genericIps: "Generic IPS (Recommended)",
+    bankIntesa: "Banca Intesa",
+    bankRaiffeisen: "Raiffeisen Banka",
+    bankYettel: "Yettel Bank",
+    bankOTP: "OTP Banka",
+    bankNLB: "NLB Komercijalna"
   }
 };
 
@@ -90,7 +113,11 @@ export default function App() {
   const [image, setImage] = useState<string | null>(null);
   const [invoiceData, setInvoiceData] = useState<InvoiceData | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [showBankModal, setShowBankModal] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [showCopyHint, setShowCopyHint] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const qrRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -240,8 +267,63 @@ export default function App() {
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
-    // Simple feedback could be added here if needed
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
+
+  const shareQrCode = async () => {
+    if (qrRef.current) {
+      try {
+        const dataUrl = await toPng(qrRef.current, { backgroundColor: '#fff' });
+        const blob = await (await fetch(dataUrl)).blob();
+        const file = new File([blob], 'ips-qr.png', { type: 'image/png' });
+
+        if (navigator.share) {
+          await navigator.share({
+            title: t.title,
+            text: t.shareDesc,
+            files: [file],
+          });
+        } else {
+          // Fallback: download
+          const link = document.createElement('a');
+          link.download = 'ips-qr.png';
+          link.href = dataUrl;
+          link.click();
+        }
+      } catch (err) {
+        console.error("Sharing error:", err);
+      }
+    }
+  };
+
+  const openBankApp = (scheme: string) => {
+    if (!invoiceData) return;
+    const ipsString = generateIpsString(invoiceData);
+    const url = `${scheme}${encodeURIComponent(ipsString)}`;
+    
+    // Attempt to open the app
+    window.location.href = url;
+    
+    // Fallback: If the app didn't open, copy the string and show a hint
+    copyToClipboard(ipsString);
+    setShowCopyHint(true);
+    setTimeout(() => setShowCopyHint(false), 5000);
+    setShowBankModal(false);
+  };
+
+  const banks = [
+    { name: t.genericIps, scheme: 'ips://' },
+    { name: t.bankIntesa, scheme: 'mobi://' },
+    { name: t.bankRaiffeisen, scheme: 'raiffeisen://' },
+    { name: t.bankYettel, scheme: 'mobibanka://' },
+    { name: t.bankOTP, scheme: 'otpbanka://' },
+    { name: t.bankNLB, scheme: 'nlb://' },
+    { name: "AIK Banka", scheme: 'aikbanka://' },
+    { name: "Eurobank Direktna", scheme: 'eurobank://' },
+    { name: "Halkbank", scheme: 'halkbank://' },
+    { name: "Adriatic Bank", scheme: 'adriatic://' },
+  ];
 
   const reset = () => {
     setImage(null);
@@ -423,20 +505,33 @@ export default function App() {
                 </div>
 
                 <div className="bg-white border border-stone-100 rounded-3xl p-6 shadow-sm space-y-6">
-                  <div className="flex justify-center p-4 bg-stone-50 rounded-2xl relative group">
-                    <QRCodeSVG 
-                      value={generateIpsString(invoiceData)} 
-                      size={200}
-                      level="M"
-                      includeMargin={true}
-                    />
-                    <button 
-                      onClick={() => copyToClipboard(generateIpsString(invoiceData))}
-                      className="absolute bottom-2 right-2 p-2 bg-white/80 backdrop-blur-sm rounded-lg text-stone-400 hover:text-emerald-600 transition-colors shadow-sm"
-                      title="Copy IPS String"
-                    >
-                      <Upload size={16} className="rotate-180" />
-                    </button>
+                  <div className="flex flex-col items-center gap-4">
+                    <div className="p-4 bg-stone-50 rounded-2xl" ref={qrRef}>
+                      <QRCodeSVG 
+                        value={generateIpsString(invoiceData)} 
+                        size={200}
+                        level="M"
+                        includeMargin={true}
+                      />
+                    </div>
+                    <div className="flex gap-3">
+                      <button 
+                        onClick={() => copyToClipboard(generateIpsString(invoiceData))}
+                        className="flex items-center gap-2 px-4 py-2 bg-stone-50 text-stone-600 rounded-xl hover:bg-stone-100 transition-colors border border-stone-100"
+                        title="Copy IPS String"
+                      >
+                        <Copy size={16} />
+                        <span className="text-xs font-bold uppercase tracking-wider">Copy IPS</span>
+                      </button>
+                      <button 
+                        onClick={shareQrCode}
+                        className="flex items-center gap-2 px-4 py-2 bg-stone-50 text-stone-600 rounded-xl hover:bg-stone-100 transition-colors border border-stone-100"
+                        title="Share QR Code"
+                      >
+                        <Share2 size={16} />
+                        <span className="text-xs font-bold uppercase tracking-wider">Share</span>
+                      </button>
+                    </div>
                   </div>
 
                   <div className="space-y-4">
@@ -486,17 +581,10 @@ export default function App() {
                     {t.scanInstruction}
                   </p>
                   <button 
-                    onClick={() => {
-                      try {
-                        const ipsString = generateIpsString(invoiceData);
-                        // URL encode the IPS string to prevent SyntaxError in location.href
-                        window.location.href = `ips://${encodeURIComponent(ipsString)}`;
-                      } catch (e) {
-                        console.error("Deep link error:", e);
-                      }
-                    }}
+                    onClick={() => setShowBankModal(true)}
                     className="w-full py-4 bg-emerald-600 text-white rounded-2xl font-semibold flex items-center justify-center gap-3 shadow-lg shadow-emerald-100 active:scale-[0.98] transition-all"
                   >
+                    <ExternalLink size={20} />
                     {t.openBank}
                   </button>
                   <button 
@@ -542,6 +630,69 @@ export default function App() {
             Powered by Ant Biocode
           </p>
         </footer>
+
+        {/* Bank Selection Modal */}
+        <AnimatePresence>
+          {showBankModal && (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-stone-900/60 backdrop-blur-sm"
+            >
+              <motion.div 
+                initial={{ y: "100%" }}
+                animate={{ y: 0 }}
+                exit={{ y: "100%" }}
+                className="w-full max-w-md bg-white rounded-t-[32px] sm:rounded-[32px] overflow-hidden shadow-2xl"
+              >
+                <div className="p-6 border-b border-stone-100 flex items-center justify-between">
+                  <h3 className="text-xl font-bold">{t.selectBank}</h3>
+                  <button 
+                    onClick={() => setShowBankModal(false)}
+                    className="p-2 hover:bg-stone-100 rounded-full transition-colors"
+                  >
+                    <X size={24} />
+                  </button>
+                </div>
+                <div className="p-4 max-h-[60vh] overflow-y-auto space-y-2">
+                  {banks.map((bank) => (
+                    <button 
+                      key={bank.name}
+                      onClick={() => openBankApp(bank.scheme)}
+                      className="w-full p-4 text-left rounded-2xl hover:bg-stone-50 border border-transparent hover:border-stone-100 transition-all flex items-center justify-between group"
+                    >
+                      <span className="font-semibold text-stone-700">{bank.name}</span>
+                      <ExternalLink size={18} className="text-stone-300 group-hover:text-emerald-600 transition-colors" />
+                    </button>
+                  ))}
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Copy Toast */}
+        <AnimatePresence>
+          {(copied || showCopyHint) && (
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              className="fixed bottom-24 left-4 right-4 z-50 bg-stone-900 text-white px-6 py-4 rounded-2xl text-sm font-medium shadow-2xl flex flex-col gap-2"
+            >
+              <div className="flex items-center gap-2 font-bold">
+                <CheckCircle2 size={18} className="text-emerald-400" />
+                {t.copied}
+              </div>
+              {showCopyHint && (
+                <p className="text-xs text-stone-400 leading-relaxed">
+                  {t.copyHint}
+                </p>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <canvas ref={canvasRef} className="hidden" />
       </div>
