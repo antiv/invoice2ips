@@ -44,12 +44,7 @@ const translations = {
     shareTitle: "Podeli QR kod",
     shareDesc: "Podelite IPS QR kod kao sliku.",
     selectBank: "Izaberite banku",
-    genericIps: "Generički IPS (Preporučeno)",
-    bankIntesa: "Banca Intesa",
-    bankRaiffeisen: "Raiffeisen Banka",
-    bankYettel: "Yettel Bank",
-    bankOTP: "OTP Banka",
-    bankNLB: "NLB Komercijalna"
+    genericIps: "Generički IPS (Preporučeno)"
   },
   en: {
     title: "IPS Scanner",
@@ -80,12 +75,7 @@ const translations = {
     shareTitle: "Share QR Code",
     shareDesc: "Share the IPS QR code as an image.",
     selectBank: "Select Your Bank",
-    genericIps: "Generic IPS (Recommended)",
-    bankIntesa: "Banca Intesa",
-    bankRaiffeisen: "Raiffeisen Banka",
-    bankYettel: "Yettel Bank",
-    bankOTP: "OTP Banka",
-    bankNLB: "NLB Komercijalna"
+    genericIps: "Generic IPS (Recommended)"
   }
 };
 
@@ -309,7 +299,9 @@ export default function App() {
     copyToClipboard(ipsString);
     
     // 2. Then attempt to open the app
-    const url = `${scheme}${encodeURIComponent(ipsString)}`;
+    // For HTTPS links, we append the string directly. 
+    // For ips:// we also append it.
+    const url = `${scheme}${ipsString}`;
     window.location.href = url;
     
     setShowCopyHint(true);
@@ -319,15 +311,20 @@ export default function App() {
 
   const banks = [
     { name: t.genericIps, scheme: 'ips://' },
-    { name: t.bankIntesa, scheme: 'mobi://' },
-    { name: t.bankRaiffeisen, scheme: 'raiffeisen://' },
-    { name: t.bankYettel, scheme: 'mobibanka://' },
-    { name: t.bankOTP, scheme: 'otpbanka://' },
-    { name: t.bankNLB, scheme: 'nlb://' },
-    { name: "AIK Banka", scheme: 'aikbanka://' },
-    { name: "Eurobank Direktna", scheme: 'eurobank://' },
-    { name: "Halkbank", scheme: 'halkbank://' },
-    { name: "Adriatic Bank", scheme: 'adriatic://' },
+    { name: "Addiko Bank", scheme: 'https://www.addiko.rs/ips/ek/fl/' },
+    { name: "Adriatic Bank", scheme: 'https://adriaticbank.24x7.rs/ips/ek/fl/' },
+    { name: "AIK Banka", scheme: 'https://ebanking.aikbanka.rs/ips/ek/fl/' },
+    { name: "Alta Banka", scheme: 'https://altabanka.24x7.rs/ips/ek/fl/' },
+    { name: "Banca Intesa", scheme: 'https://ipspos.bancaintesa.rs/ips/ek/fl/' },
+    { name: "Banka Poštanska Štedionica", scheme: 'https://onlinebanking.posted.co.rs/ips/ek/fl/' },
+    { name: "Erste Bank", scheme: 'https://erstebank.24x7.rs/ips/ek/fl/' },
+    { name: "Halkbank", scheme: 'https://halkbank.24x7.rs/ips/ek/fl/' },
+    { name: "NLB Komercijalna Banka", scheme: 'https://mbankkombank.24x7.rs/ips/ek/fl/' },
+    { name: "OTP Banka Srbija", scheme: 'https://ebank.otpbanka.rs/ips/ek/fl/' },
+    { name: "Raiffeisen Banka", scheme: 'https://rol.raiffeisenbank.rs/ips/ek/fl/' },
+    { name: "Srpska Banka", scheme: 'https://srpskabanka.24x7.rs/ips/ek/fl/' },
+    { name: "UniCredit Bank Srbija", scheme: 'https://www.unicreditbank.rs/ips/ek/fl/' },
+    { name: "Yettel Bank", scheme: 'https://online.yettelbank.rs/ips/ek/fl/' },
   ];
 
   const reset = () => {
