@@ -6,7 +6,7 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { GoogleGenAI, Type } from "@google/genai";
 import { QRCodeSVG } from 'qrcode.react';
-import { Camera, Upload, RefreshCw, CheckCircle2, AlertCircle, QrCode, ArrowLeft, Loader2, Copy, Share2, X, ExternalLink } from 'lucide-react';
+import { Camera, Upload, RefreshCw, CheckCircle2, AlertCircle, QrCode, ArrowLeft, Loader2, Copy, Share2, X, ExternalLink, Bot, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { toPng } from 'html-to-image';
 
@@ -25,7 +25,7 @@ const translations = {
     or: "Ili",
     analyzing: "Analiziranje računa",
     extracting: "Izvlačenje podataka pomoću AI...",
-    extracted: "Podaci su izvučeni",
+    extracted: "Podaci su pročitani",
     amount: "Iznos (RSD)",
     recipient: "Primalac",
     account: "Račun",
@@ -43,8 +43,11 @@ const translations = {
     copyHint: "Ako se aplikacija banke nije otvorila, kopirali smo IPS string. Možete ga nalepiti u aplikaciji banke.",
     shareTitle: "Podeli QR kod",
     shareDesc: "Podelite IPS QR kod kao sliku.",
+    shareInstruction: "Savet: Koristite opciju 'Podeli' da pošaljete sliku QR koda vašoj bankarskoj aplikaciji (ako je podržano).",
     selectBank: "Izaberite banku",
-    genericIps: "Generički IPS (Preporučeno)"
+    genericIps: "Generički IPS (Preporučeno)",
+    copyIps: "Kopiraj IPS",
+    share: "Podeli"
   },
   en: {
     title: "IPS Scanner",
@@ -56,7 +59,7 @@ const translations = {
     or: "Or",
     analyzing: "Analyzing Invoice",
     extracting: "Extracting payment details using AI...",
-    extracted: "Invoice Details Extracted",
+    extracted: "Invoice Details Read",
     amount: "Amount (RSD)",
     recipient: "Recipient",
     account: "Account",
@@ -74,8 +77,11 @@ const translations = {
     copyHint: "If the bank app didn't open, we've copied the IPS string. You can paste it in your bank app.",
     shareTitle: "Share QR Code",
     shareDesc: "Share the IPS QR code as an image.",
+    shareInstruction: "Tip: Use the 'Share' option to send the QR code image to your bank app (if supported).",
     selectBank: "Select Your Bank",
-    genericIps: "Generic IPS (Recommended)"
+    genericIps: "Generic IPS (Recommended)",
+    copyIps: "Copy IPS",
+    share: "Share"
   }
 };
 
@@ -103,7 +109,6 @@ export default function App() {
   const [image, setImage] = useState<string | null>(null);
   const [invoiceData, setInvoiceData] = useState<InvoiceData | null>(null);
   const [isEditing, setIsEditing] = useState(false);
-  const [showBankModal, setShowBankModal] = useState(false);
   const [copied, setCopied] = useState(false);
   const [showCopyHint, setShowCopyHint] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -234,14 +239,14 @@ export default function App() {
     }
   };
 
-  const generateIpsString = (data: InvoiceData) => {
-    // NBS IPS Format: K:PR|V:01|C:1|R:[Account]|N:[Recipient]|I:RSD[Amount]|SF:[Code]|S:[Purpose]|RO:[Reference]
-    // Amount format: RSD1234,56 (comma as decimal)
+  const generateIpsString = (data: InvoiceData, type: 'PR' | 'EK' = 'PR') => {
+    // NBS IPS Format: K:[TYPE]|V:01|C:1|R:[Account]|N:[Recipient]|I:RSD[Amount]|SF:[Code]|S:[Purpose]|RO:[Reference]
+    // PR = Plaćanje Računa (Standard QR), EK = Elektronska Kupovina (Deep Links)
     const formattedAmount = `RSD${(data.amount || 0).toFixed(2).replace('.', ',')}`;
     const cleanAccount = (data.accountNumber || '').replace(/[^0-9]/g, '');
     
     const parts = [
-      `K:PR`,
+      `K:${type}`,
       `V:01`,
       `C:1`,
       `R:${cleanAccount}`,
@@ -291,42 +296,6 @@ export default function App() {
     }
   };
 
-  const openBankApp = (scheme: string) => {
-    if (!invoiceData) return;
-    const ipsString = generateIpsString(invoiceData);
-    
-    // 1. Copy IMMEDIATELY to preserve user activation
-    copyToClipboard(ipsString);
-    
-    // 2. Then attempt to open the app
-    // For HTTPS links, we append the string directly. 
-    // For ips:// we also append it.
-    const url = `${scheme}${ipsString}`;
-    window.location.href = url;
-    
-    setShowCopyHint(true);
-    setTimeout(() => setShowCopyHint(false), 5000);
-    setShowBankModal(false);
-  };
-
-  const banks = [
-    { name: t.genericIps, scheme: 'ips://' },
-    { name: "Addiko Bank", scheme: 'https://www.addiko.rs/ips/ek/fl/' },
-    { name: "Adriatic Bank", scheme: 'https://adriaticbank.24x7.rs/ips/ek/fl/' },
-    { name: "AIK Banka", scheme: 'https://ebanking.aikbanka.rs/ips/ek/fl/' },
-    { name: "Alta Banka", scheme: 'https://altabanka.24x7.rs/ips/ek/fl/' },
-    { name: "Banca Intesa", scheme: 'https://ipspos.bancaintesa.rs/ips/ek/fl/' },
-    { name: "Banka Poštanska Štedionica", scheme: 'https://onlinebanking.posted.co.rs/ips/ek/fl/' },
-    { name: "Erste Bank", scheme: 'https://erstebank.24x7.rs/ips/ek/fl/' },
-    { name: "Halkbank", scheme: 'https://halkbank.24x7.rs/ips/ek/fl/' },
-    { name: "NLB Komercijalna Banka", scheme: 'https://mbankkombank.24x7.rs/ips/ek/fl/' },
-    { name: "OTP Banka Srbija", scheme: 'https://ebank.otpbanka.rs/ips/ek/fl/' },
-    { name: "Raiffeisen Banka", scheme: 'https://rol.raiffeisenbank.rs/ips/ek/fl/' },
-    { name: "Srpska Banka", scheme: 'https://srpskabanka.24x7.rs/ips/ek/fl/' },
-    { name: "UniCredit Bank Srbija", scheme: 'https://www.unicreditbank.rs/ips/ek/fl/' },
-    { name: "Yettel Bank", scheme: 'https://online.yettelbank.rs/ips/ek/fl/' },
-  ];
-
   const reset = () => {
     setImage(null);
     setInvoiceData(null);
@@ -354,9 +323,9 @@ export default function App() {
           <div className="flex items-center gap-2">
             <button 
               onClick={() => setLang(lang === 'sr' ? 'en' : 'sr')}
-              className="px-2 py-1 text-[10px] font-bold border border-stone-200 rounded-md hover:bg-stone-50 transition-colors uppercase"
+              className="px-2 py-1 text-[10px] font-bold border border-stone-200 rounded-md hover:bg-stone-50 transition-colors uppercase flex items-center gap-1"
             >
-              {lang === 'sr' ? 'EN' : 'SR'}
+              {lang === 'sr' ? '🇺🇸 EN' : '🇷🇸 SR'}
             </button>
             {state !== 'idle' && (
               <button 
@@ -476,9 +445,33 @@ export default function App() {
                 className="flex-1 flex flex-col items-center justify-center text-center space-y-8"
               >
                 <div className="relative">
+                  {/* Outer spinning ring */}
                   <div className="w-32 h-32 rounded-full border-4 border-emerald-100 border-t-emerald-600 animate-spin"></div>
-                  <div className="absolute inset-0 flex items-center justify-center text-emerald-600">
-                    <Loader2 size={40} className="animate-pulse" />
+                  
+                  {/* Inner robot with "thinking" animation */}
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <motion.div
+                      animate={{ 
+                        y: [0, -8, 0],
+                        rotate: [0, -5, 5, 0]
+                      }}
+                      transition={{ 
+                        duration: 2, 
+                        repeat: Infinity,
+                        ease: "easeInOut" 
+                      }}
+                      className="text-emerald-600 relative"
+                    >
+                      <Bot size={48} strokeWidth={1.5} />
+                      {/* Floating sparkles to indicate "thinking" */}
+                      <motion.div
+                        animate={{ opacity: [0, 1, 0], scale: [0.5, 1.2, 0.5] }}
+                        transition={{ duration: 1.5, repeat: Infinity, delay: 0.2 }}
+                        className="absolute -top-2 -right-2 text-yellow-400"
+                      >
+                        <Sparkles size={16} />
+                      </motion.div>
+                    </motion.div>
                   </div>
                 </div>
                 <div className="space-y-2">
@@ -520,18 +513,18 @@ export default function App() {
                       <button 
                         onClick={() => copyToClipboard(generateIpsString(invoiceData))}
                         className="flex items-center gap-2 px-4 py-2 bg-stone-50 text-stone-600 rounded-xl hover:bg-stone-100 transition-colors border border-stone-100"
-                        title="Copy IPS String"
+                        title={t.copyIps}
                       >
                         <Copy size={16} />
-                        <span className="text-xs font-bold uppercase tracking-wider">Copy IPS</span>
+                        <span className="text-xs font-bold uppercase tracking-wider">{t.copyIps}</span>
                       </button>
                       <button 
                         onClick={shareQrCode}
                         className="flex items-center gap-2 px-4 py-2 bg-stone-50 text-stone-600 rounded-xl hover:bg-stone-100 transition-colors border border-stone-100"
-                        title="Share QR Code"
+                        title={t.share}
                       >
                         <Share2 size={16} />
-                        <span className="text-xs font-bold uppercase tracking-wider">Share</span>
+                        <span className="text-xs font-bold uppercase tracking-wider">{t.share}</span>
                       </button>
                     </div>
                   </div>
@@ -579,19 +572,14 @@ export default function App() {
                 </div>
 
                 <div className="space-y-3 pt-4">
-                  <p className="text-center text-xs text-stone-400 font-medium px-4">
+                  <p className="text-center text-xs text-stone-400 font-medium px-4 leading-relaxed">
                     {t.scanInstruction}
+                    <br />
+                    <span className="text-emerald-600 mt-1 block italic">{t.shareInstruction}</span>
                   </p>
                   <button 
-                    onClick={() => setShowBankModal(true)}
-                    className="w-full py-4 bg-emerald-600 text-white rounded-2xl font-semibold flex items-center justify-center gap-3 shadow-lg shadow-emerald-100 active:scale-[0.98] transition-all"
-                  >
-                    <ExternalLink size={20} />
-                    {t.openBank}
-                  </button>
-                  <button 
                     onClick={reset}
-                    className="w-full py-4 bg-stone-100 text-stone-600 rounded-2xl font-semibold active:scale-[0.98] transition-all"
+                    className="w-full py-4 bg-stone-900 text-white rounded-2xl font-semibold shadow-lg shadow-stone-200 active:scale-[0.98] transition-all"
                   >
                     {t.scanAnother}
                   </button>
@@ -627,52 +615,6 @@ export default function App() {
         </main>
 
         {/* Footer Info */}
-        <footer className="p-6 text-center border-t border-stone-50">
-          <p className="text-[10px] text-stone-300 font-bold uppercase tracking-[0.2em]">
-            Powered by Ant Biocode
-          </p>
-        </footer>
-
-        {/* Bank Selection Modal */}
-        <AnimatePresence>
-          {showBankModal && (
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-stone-900/60 backdrop-blur-sm"
-            >
-              <motion.div 
-                initial={{ y: "100%" }}
-                animate={{ y: 0 }}
-                exit={{ y: "100%" }}
-                className="w-full max-w-md bg-white rounded-t-[32px] sm:rounded-[32px] overflow-hidden shadow-2xl"
-              >
-                <div className="p-6 border-b border-stone-100 flex items-center justify-between">
-                  <h3 className="text-xl font-bold">{t.selectBank}</h3>
-                  <button 
-                    onClick={() => setShowBankModal(false)}
-                    className="p-2 hover:bg-stone-100 rounded-full transition-colors"
-                  >
-                    <X size={24} />
-                  </button>
-                </div>
-                <div className="p-4 max-h-[60vh] overflow-y-auto space-y-2">
-                  {banks.map((bank) => (
-                    <button 
-                      key={bank.name}
-                      onClick={() => openBankApp(bank.scheme)}
-                      className="w-full p-4 text-left rounded-2xl hover:bg-stone-50 border border-transparent hover:border-stone-100 transition-all flex items-center justify-between group"
-                    >
-                      <span className="font-semibold text-stone-700">{bank.name}</span>
-                      <ExternalLink size={18} className="text-stone-300 group-hover:text-emerald-600 transition-colors" />
-                    </button>
-                  ))}
-                </div>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
 
         {/* Copy Toast */}
         <AnimatePresence>
