@@ -9,6 +9,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { Camera, Upload, RefreshCw, CheckCircle2, AlertCircle, QrCode, ArrowLeft, Loader2, Copy, Share2, X, ExternalLink, Bot, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { toPng } from 'html-to-image';
+import { isTauri } from '@/src/lib/tauri';
 
 // --- Types ---
 
@@ -316,7 +317,14 @@ export default function App() {
               <QrCode size={24} />
             </div>
             <div>
-              <h1 className="font-bold text-lg leading-tight">{t.title}</h1>
+              <div className="flex items-center gap-2">
+                <h1 className="font-bold text-lg leading-tight">{t.title}</h1>
+                {isTauri() && (
+                  <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-700 text-[8px] font-bold rounded uppercase tracking-tighter">
+                    Desktop
+                  </span>
+                )}
+              </div>
               <p className="text-xs text-stone-400 font-medium uppercase tracking-wider">{t.standard}</p>
             </div>
           </div>
