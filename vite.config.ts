@@ -7,6 +7,18 @@ import { VitePWA } from 'vite-plugin-pwa';
 export default defineConfig(({mode}) => {
   const env = loadEnv(mode, '.', '');
   return {
+    css: {
+      transformer: 'lightningcss',
+      lightningcss: {
+        targets: {
+          android: 80 << 16,
+          chrome: 80 << 16,
+        }
+      }
+    },
+    build: {
+      cssMinify: 'lightningcss'
+    },
     plugins: [
       react(), 
       tailwindcss(),
