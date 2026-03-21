@@ -16,7 +16,7 @@ type Language = 'sr' | 'en';
 
 const translations = {
   sr: {
-    title: "IPS Skener",
+    title: "Invoice2IPS",
     standard: "NBS Standard",
     scanTitle: "Skenirajte račun",
     scanDesc: "Fotografišite račun da biste automatski generisali IPS QR kod za vašu bankarsku aplikaciju.",
@@ -50,7 +50,7 @@ const translations = {
     share: "Podeli"
   },
   en: {
-    title: "IPS Scanner",
+    title: "Invoice2IPS",
     standard: "NBS Standard",
     scanTitle: "Scan Your Invoice",
     scanDesc: "Take a photo of your invoice to automatically generate an IPS QR code for your banking app.",
